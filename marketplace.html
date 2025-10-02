@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Marketplace — MicroTasks</title>
+<style>
+  :root{--bg:#071022;--card:#071425;--accent:#06b6d4;--muted:#9aa6b2;}
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#021421);color:#eaf6fb;min-height:100vh;}
+  header{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;max-width:1100px;margin:0 auto;}
+  header .left{display:flex;gap:12px;align-items:center}
+  .container{max-width:1100px;margin:10px auto;padding:18px;display:grid;grid-template-columns:1fr 340px;gap:18px;}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);}
+  .task{padding:12px;border-radius:10px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.02);background:rgba(255,255,255,0.01)}
+  .task h4{margin:0}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .muted{color:var(--muted);font-size:13px}
+  @media(max-width:980px){.container{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="left">
+    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-weight:700">MT</div>
+    <div>
+      <div style="font-weight:600">MicroTasks</div>
+      <div class="muted" id="who"></div>
+    </div>
+  </div>
+  <div>
+    <button onclick="go('post_task.html')" style="padding:8px 10px;border-radius:8px;background:var(--accent);border:none;cursor:pointer">Post a Task</button>
+    <button onclick="go('worker_dashboard.html')" style="padding:8px 10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);margin-left:8px">My Dashboard</button>
+    <button onclick="logout()" style="padding:8px 10px;border-radius:8px;background:transparent;border:none;color:var(--muted);margin-left:8px">Logout</button>
+  </div>
+</header>
+ 
+<div class="container">
+  <div class="card">
+    <h3 style="margin-top:0">Task Marketplace</h3>
+    <div class="filters">
+      <select id="catFilter" onchange="render()">
+        <option value="">All categories</option>
+        <option value="data-entry">Data Entry</option>
+        <option value="survey">Survey</option>
+        <option value="transcription">Transcription</option>
+        <option value="tagging">Tagging</option>
+      </select>
+      <select id="sort" onchange="render()">
+        <option value="new">Newest</option>
+        <option value="reward">Highest reward</option>
+        <option value="deadline">Nearest deadline</option>
+      </select>
+      <input id="search" placeholder="Search tasks..." oninput="render()" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);flex:1"/>
+    </div>
+ 
+    <div id="list"></div>
+  </div>
+ 
+  <aside class="card">
+    <h4 style="margin:0 0 8px 0">Task categories</h4>
+    <div class="muted">Discover small tasks grouped by type</div>
+    <ul style="margin-top:12px;padding-left:18px">
+      <li>Data Entry</li><li>Survey</li><li>Transcription</li><li>Tagging</li>
+    </ul>
+ 
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0"/>
+ 
+    <div>
+      <strong>Your stats</strong>
+      <div class="muted" id="stats" style="margin-top:8px"></div>
+    </div>
+ 
+  </aside>
+</div>
+ 
+<script>
+/* Storage helpers */
+function getTasks(){return JSON.parse(localStorage.getItem('mt_tasks')||'[]')}
+function setTasks(t){localStorage.setItem('mt_tasks', JSON.stringify(t))}
+function getUsers(){return JSON.parse(localStorage.getItem('mt_users')||'[]')}
+function setUsers(u){localStorage.setItem('mt_users', JSON.stringify(u))}
+function getSession(){return JSON.parse(localStorage.getItem('mt_session')||'null')}
+function setSession(s){localStorage.setItem('mt_session', JSON.stringify(s))}
+function go(page){ window.location.href = page; }
+function logout(){ localStorage.removeItem('mt_session'); alert('Logged out'); window.location.href='index.html'; }
+ 
+const session = getSession();
+document.getElementById('who').innerText = session ? `${session.email} • ${session.role}` : 'Not signed in';
+renderStats();
+render();
+ 
+function render(){
+  const container = document.getElementById('list'); container.innerHTML='';
+  let tasks = getTasks() || [];
+  const q = document.getElementById('search').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  const sort = document.getElementById('sort').value;
+ 
+  if(cat) tasks = tasks.filter(t=>t.category===cat);
+  if(q) tasks = tasks.filter(t=>t.title.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q));
+  if(sort==='reward') tasks = tasks.sort((a,b)=>b.reward - a.reward);
+  if(sort==='deadline') tasks = tasks.sort((a,b)=> new Date(a.deadline) - new Date(b.deadline));
+  if(sort==='new') tasks = tasks.sort((a,b)=> b.id.localeCompare(a.id));
+ 
+  if(!tasks.length) container.innerHTML = '<div class="muted">No tasks found. Requesters can post tasks from Post a Task.</div>';
+  tasks.forEach(t=>{
+    const div = document.createElement('div'); div.className='task';
+    const status = t.status || 'open';
+    div.innerHTML = `<h4>${t.title} <small style="font-weight:400;color:var(--muted)"> • $${t.reward}</small></h4>
+      <div class="muted">${t.category} • due ${t.deadline} • posted by ${t.requester}</div>
+      <p style="margin:8px 0;color:var(--muted);">${t.desc}</p>
+      <div style="display:flex;gap:8px">
+        <button onclick="view('${t.id}')" style="padding:8px 10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);cursor:pointer">View</button>
+        ${session && session.role==='worker' && t.status==='open' ? `<button onclick="applyTask('${t.id}')" style="padding:8px 10px;border-radius:8px;background:var(--accent);border:none;cursor:pointer">Apply</button>` : ''}
+        ${session && session.email===t.requester ? `<button onclick="manage('${t.id}')" style="padding:8px 10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);cursor:pointer">Manage</button>` : ''}
+      </div>`;
+    container.appendChild(div);
+  });
+}
+ 
+function view(id){ go('task_detail.html?id='+id) }
+ 
+/* worker applies: we simply set workerId when accepted by requester,
+   but for demo, clicking apply will auto-assign (simulate acceptance) */
+function applyTask(id){
+  const session = getSession(); if(!session){ alert('Sign in as a worker to apply'); go('login.html'); return; }
+  if(session.role!=='worker'){ alert('Only workers can apply — switch account to worker'); return; }
+  let tasks = getTasks(); let t = tasks.find(x=>x.id===id);
+  if(!t || t.status!=='open'){ alert('Task not available'); render(); return; }
+  // For simplicity auto-accept application
+  t.workerId = session.id; t.status = 'in-progress'; t.applicants = t.applicants || []; t.applicants.push(session.email);
+  setTasks(tasks); alert('Task accepted — now in progress. Go to Dashboard to complete it.'); render();
+}
+ 
+function manage(id){ go('task_detail.html?id='+id) }
+ 
+function renderStats(){
+  const session = getSession(); if(!session) return;
+  const users = getUsers(); const me = users.find(u=>u.id===session.id);
+  if(!me) return;
+  document.getElementById('stats').innerHTML = `Role: <strong>${me.role}</strong><br/>Earnings: <strong>$${(me.balance||0).toFixed(2)}</strong><br/>Completed: <strong>${me.completed||0}</strong>`;
+}
+</script>
+</body>
+</html>
+ 
