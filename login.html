@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Login / Register — MicroTasks</title>
+<style>
+  :root{--bg:#071022;--card:#081324;--accent:#06b6d4;--muted:#9aa6b2;}
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#031422);color:#e9f3f7;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px;}
+  .card{width:100%;max-width:920px;background:var(--card);border-radius:14px;padding:22px;display:grid;grid-template-columns:1fr 380px;gap:20px;border:1px solid rgba(255,255,255,0.03);}
+  h2{margin:0 0 8px 0}
+  label{display:block;margin-top:12px;font-size:13px;color:var(--muted)}
+  input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;margin-top:6px}
+  button{padding:10px 14px;border-radius:10px;border:none;cursor:pointer}
+  .actions{margin-top:18px;display:flex;gap:10px}
+  .info{padding:18px;background:rgba(255,255,255,0.02);border-radius:10px}
+  @media(max-width:880px){.card{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div>
+    <h2>Sign in or Register</h2>
+    <p style="color:var(--muted)">Create a worker or requester account. Accounts are stored in your browser (localStorage) for demo purposes.</p>
+ 
+    <label>Email</label>
+    <input id="email" type="email" placeholder="you@example.com"/>
+ 
+    <label>Full name</label>
+    <input id="name" placeholder="Your name"/>
+ 
+    <label>Role</label>
+    <select id="role">
+      <option value="worker">Worker (complete tasks)</option>
+      <option value="requester">Requester (post tasks)</option>
+    </select>
+ 
+    <div class="actions">
+      <button onclick="register()" style="background:var(--accent);color:#02121a">Register</button>
+      <button onclick="signin()" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)">Sign in</button>
+      <button onclick="go('index.html')" style="background:transparent;border:none;color:var(--muted)">Back</button>
+    </div>
+  </div>
+ 
+  <aside class="info">
+    <h3 style="margin-top:0">Demo notes</h3>
+    <p style="color:var(--muted)">This demo uses client-side storage — try creating both roles. Once logged in you'll be redirected to the marketplace. Use the "Post a Task" page to create tasks as a requester. Payouts are simulated and stored in your profile.</p>
+    <div style="margin-top:12px">
+      <strong>Quick actions</strong>
+      <div style="margin-top:6px"><small style="color:var(--muted)">Want to test faster? Use the homepage quick sign-in.</small></div>
+    </div>
+  </aside>
+</div>
+ 
+<script>
+function getUsers(){return JSON.parse(localStorage.getItem('mt_users')||'[]')}
+function setUsers(u){localStorage.setItem('mt_users', JSON.stringify(u))}
+function setSession(s){localStorage.setItem('mt_session', JSON.stringify(s))}
+function getSession(){return JSON.parse(localStorage.getItem('mt_session')||'null')}
+ 
+function register(){
+  const email=document.getElementById('email').value.trim();
+  const name=document.getElementById('name').value.trim();
+  const role=document.getElementById('role').value;
+  if(!email||!name){ alert('Enter name and email'); return; }
+  let users = getUsers();
+  if(users.find(x=>x.email===email)){ alert('Email already exists. Use sign in.'); return; }
+  const u = {id:Date.now(), email, name, role, balance:0, completed:0, rating:0, reviews:[]};
+  users.push(u); setUsers(users); setSession({id:u.id,email:u.email,role:u.role});
+  alert('Registered & signed in as ' + email);
+  window.location.href='marketplace.html';
+}
+ 
+function signin(){
+  const email=document.getElementById('email').value.trim();
+  if(!email) { alert('Enter email to sign in'); return; }
+  let users = getUsers(); const u = users.find(x=>x.email===email);
+  if(!u){ if(confirm('User not found. Create new?')){ document.getElementById('name').focus(); } else return; }
+  setSession({id:u.id,email:u.email,role:u.role});
+  alert('Signed in as ' + u.email);
+  window.location.href='marketplace.html';
+}
+ 
+function go(page){ window.location.href = page; }
+</script>
+</body>
+</html>
