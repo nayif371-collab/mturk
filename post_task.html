@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Post a Task — MicroTasks</title>
+<style>
+  :root{--bg:#051225;--card:#071426;--accent:#06b6d4;--muted:#9aa6b2;}
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#021421);color:#eaf6fb;display:flex;justify-content:center;padding:20px;}
+  .wrap{max-width:900px;width:100%;}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);}
+  label{display:block;margin-top:10px;color:var(--muted)}
+  input,textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;margin-top:6px}
+  .row{display:grid;grid-template-columns:1fr 160px;gap:10px}
+  button{padding:10px;border-radius:10px;border:none;cursor:pointer}
+  @media(max-width:820px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h2 style="margin:0">Post a Task</h2>
+    <p style="color:var(--muted)">Fill details. Must be signed in as a requester to post tasks.</p>
+ 
+    <label>Title</label>
+    <input id="title" placeholder="Short title e.g., Transcribe 30s audio"/>
+ 
+    <label>Category</label>
+    <select id="category">
+      <option value="data-entry">Data Entry</option>
+      <option value="survey">Survey</option>
+      <option value="transcription">Transcription</option>
+      <option value="tagging">Tagging</option>
+    </select>
+ 
+    <label>Description</label>
+    <textarea id="desc" rows="4" placeholder="Clear task instructions"></textarea>
+ 
+    <div class="row">
+      <div>
+        <label>Reward (USD)</label>
+        <input id="reward" type="number" step="0.01" placeholder="e.g., 1.50"/>
+      </div>
+      <div>
+        <label>Deadline</label>
+        <input id="deadline" type="date"/>
+      </div>
+    </div>
+ 
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button onclick="postTask()" style="background:var(--accent);color:#02121a">Post Task</button>
+      <button onclick="go('marketplace.html')" style="background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)">Back to marketplace</button>
+    </div>
+ 
+    <div style="margin-top:14px;color:var(--muted)"><strong>Note:</strong> This demo stores tasks locally in your browser. If you want to simulate multiple users, open in different browsers or use different emails.</div>
+  </div>
+</div>
+ 
+<script>
+function getUsers(){return JSON.parse(localStorage.getItem('mt_users')||'[]')}
+function setUsers(u){localStorage.setItem('mt_users', JSON.stringify(u))}
+function getTasks(){return JSON.parse(localStorage.getItem('mt_tasks')||'[]')}
+function setTasks(t){localStorage.setItem('mt_tasks', JSON.stringify(t))}
+function getSession(){return JSON.parse(localStorage.getItem('mt_session')||'null')}
+function go(page){window.location.href=page}
+ 
+function postTask(){
+  const s = getSession(); if(!s){ alert('Sign in as a requester to post tasks'); go('login.html'); return; }
+  if(s.role!=='requester'){ alert('You must be a requester to post tasks. Create/Sign-in with requester role.'); return; }
+  const title=document.getElementById('title').value.trim();
+  const category=document.getElementById('category').value;
+  const desc=document.getElementById('desc').value.trim();
+  const reward=parseFloat(document.getElementById('reward').value);
+  const deadline=document.getElementById('deadline').value;
+  if(!title||!desc||!reward||!deadline){ alert('Complete all fields'); return; }
+  let tasks = getTasks();
+  const id = 't'+Date.now();
+  tasks.push({id,title,category,desc,reward,deadline,status:'open',requester:s.email,applicants:[],workerId:null,completed:false,ratings:[]});
+  setTasks(tasks);
+  alert('Task posted');
+  go('marketplace.html');
+}
+</script>
+</body>
+</html>
