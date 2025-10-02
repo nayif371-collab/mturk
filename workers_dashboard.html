@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Worker Dashboard — MicroTasks</title>
+<style>
+  :root{--bg:#071427;--card:#071022;--accent:#06b6d4;--muted:#9aa6b2;}
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#021421);color:#eaf6fb;min-height:100vh;padding:18px;}
+  .wrap{max-width:1100px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center}
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:16px}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);}
+  .task{padding:10px;border-radius:10px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.02);background:rgba(255,255,255,0.01)}
+  button{padding:8px;border-radius:8px;border:none;cursor:pointer}
+  .muted{color:var(--muted)}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h2 style="margin:0">My Dashboard</h2>
+    <div>
+      <button onclick="go('marketplace.html')" style="padding:8px 10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04)">Marketplace</button>
+      <button onclick="go('index.html')" style="padding:8px 10px;border-radius:8px;margin-left:8px;background:var(--accent);color:#02121a">Home</button>
+    </div>
+  </header>
+ 
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Assigned & Completed Tasks</h3>
+      <div id="list"></div>
+    </div>
+ 
+    <aside class="card">
+      <h4 style="margin:0">Earnings</h4>
+      <div class="muted" id="earn"></div>
+      <div style="margin-top:12px">
+        <button onclick="withdraw()" style="background:var(--accent);color:#02121a">Withdraw (simulate)</button>
+      </div>
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0"/>
+      <div><strong>Your profile</strong><div class="muted" id="profile"></div></div>
+    </aside>
+  </div>
+</div>
+ 
+<script>
+function getTasks(){return JSON.parse(localStorage.getItem('mt_tasks')||'[]')}
+function setTasks(t){localStorage.setItem('mt_tasks', JSON.stringify(t))}
+function getUsers(){return JSON.parse(localStorage.getItem('mt_users')||'[]')}
+function setUsers(u){localStorage.setItem('mt_users', JSON.stringify(u))}
+function getSession(){return JSON.parse(localStorage.getItem('mt_session')||'null')}
+function setSession(s){localStorage.setItem('mt_session', JSON.stringify(s))}
+function go(p){window.location.href=p}
+ 
+const session = getSession(); if(!session){ alert('Sign in first'); go('login.html'); }
+const users = getUsers(); const me = users.find(u=>u.id===session.id);
+document.getElementById('profile').innerHTML = `Email: ${session.email}<br/>Role: ${session.role}<br/>Rating: ${me?.rating||0}`;
+render();
+ 
+function render(){
+  const list = document.getElementById('list'); list.innerHTML='';
+  const tasks = getTasks();
+  const assigned = tasks.filter(t=>t.workerId===session.id);
+  if(!assigned.length) list.innerHTML = '<div class="muted">No assigned tasks. Browse marketplace to accept tasks.</div>';
+  assigned.forEach(t=>{
+    const div=document.createElement('div'); div.className='task';
+    div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${t.title}</strong><div class="muted">${t.status}</div></div>
+      <div class="muted" style="margin-top:6px">$${t.reward} • due ${t.deadline}</div>
+      <div style="margin-top:8px">${t.status==='in-progress' ? `<button onclick="go('task_detail.html?id=${t.id}')">Submit / View</button>` : ''}
+        ${t.status==='completed' ? `<button onclick="collect('${t.id}')">Collect (simulate)</button>` : ''}</div>`;
+    list.appendChild(div);
+  });
+  document.getElementById('earn').innerHTML = `<strong>$${(me?.balance||0).toFixed(2)}</strong>`;
+}
+ 
+function collect(id){
+  // collecting is simulated: ensure requester has marked paid already
+  const tasks = getTasks(); const t = tasks.find(x=>x.id===id);
+  if(!t || t.status!=='completed'){ alert('Task not yet marked completed by requester'); return; }
+  alert('Task completed and payment should have been added to your balance by the requester.');
+  render();
+}
+ 
+function withdraw(){
+  if(!confirm('Simulate withdraw? Funds will be set to 0 locally.')) return;
+  let users = getUsers(); const u = users.find(x=>x.id===session.id);
+  if(u){ u.balance = 0; setUsers(users); alert('Withdraw simulated. Balance now $0'); location.reload(); }
+}
+</script>
+</body>
+</html>
+ 
