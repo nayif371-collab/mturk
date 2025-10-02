@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Task Detail — MicroTasks</title>
+<style>
+  :root{--bg:#081427;--card:#071022;--accent:#06b6d4;--muted:#9aa6b2;}
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#021421);color:#eaf6fb;min-height:100vh;padding:18px;}
+  .wrap{max-width:900px;margin:0 auto}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);}
+  .muted{color:var(--muted)}
+  button{padding:10px;border-radius:10px;border:none;cursor:pointer}
+  textarea{width:100%;padding:10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="card"></div>
+  <div style="margin-top:12px"><button onclick="go('marketplace.html')" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px">Back</button></div>
+</div>
+ 
+<script>
+function getTasks(){return JSON.parse(localStorage.getItem('mt_tasks')||'[]')}
+function setTasks(t){localStorage.setItem('mt_tasks', JSON.stringify(t))}
+function getUsers(){return JSON.parse(localStorage.getItem('mt_users')||'[]')}
+function setUsers(u){localStorage.setItem('mt_users', JSON.stringify(u))}
+function getSession(){return JSON.parse(localStorage.getItem('mt_session')||'null')}
+function setSession(s){localStorage.setItem('mt_session', JSON.stringify(s))}
+function go(p){window.location.href=p}
+ 
+const params = new URLSearchParams(location.search);
+const id = params.get('id');
+const card = document.getElementById('card');
+if(!id){ card.innerHTML = '<div class="muted">No task selected</div>'; }
+else showTask();
+ 
+function showTask(){
+  const tasks = getTasks(); const t = tasks.find(x=>x.id===id);
+  if(!t){ card.innerHTML = '<div class="muted">Task not found</div>'; return; }
+  const session = getSession();
+  const isRequester = session && session.email===t.requester;
+  const isWorker = session && session.id===t.workerId;
+  const assigned = t.workerId ? 'Assigned to ' + (t.workerId ? (getUsers().find(u=>u.id===t.workerId)?.email || 'worker') : '') : 'Unassigned';
+  card.innerHTML = `<h2 style="margin:0">${t.title}</h2>
+    <div class="muted" style="margin-top:6px">${t.category} • $${t.reward} • due ${t.deadline}</div>
+    <p style="color:var(--muted);margin-top:12px">${t.desc}</p>
+    <div style="margin-top:12px">${assigned}</div>
+    <div style="margin-top:14px" id="actions"></div>
+    <div style="margin-top:14px"><strong>Ratings & reviews</strong><div id="reviews" style="margin-top:8px"></div></div>`;
+ 
+  renderActions(t, session, isRequester, isWorker);
+  renderReviews(t);
+}
+ 
+function renderActions(t, session, isRequester, isWorker){
+  const a = document.getElementById('actions'); a.innerHTML='';
+  if(t.status==='open'){
+    if(session && session.role==='worker'){
+      a.innerHTML += `<button onclick="apply('${t.id}')" style="background:var(--accent);color:#02121a">Accept task</button>`;
+    } else {
+      a.innerHTML += `<div class="muted">Sign in as worker to accept this task.</div>`;
+    }
+    if(session && session.email===t.requester){
+      a.innerHTML += `<button onclick="cancel('${t.id}')" style="margin-left:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);">Cancel task</button>`;
+    }
+  } else if(t.status==='in-progress'){
+    if(isWorker){
+      a.innerHTML += `<div style="margin-bottom:8px;color:var(--muted)">Task in progress. Submit when done.</div>
+        <textarea id="submission" placeholder="Paste your result / notes"></textarea>
+        <div style="margin-top:8px"><button onclick="complete('${t.id}')" style="background:var(--accent);color:#02121a">Submit & Mark Complete</button></div>`;
+    }
+    if(isRequester){
+      a.innerHTML += `<div style="color:var(--muted)">Worker in progress: ${getUsers().find(u=>u.id===t.workerId)?.email || 'worker'}</div>
+        <div style="margin-top:8px"><button onclick="markPaid('${t.id}')" style="background:transparent;border:1px solid rgba(255,255,255,0.04)">Mark as Paid & Complete</button></div>`;
+    }
+  } else if(t.status==='completed'){
+    a.innerHTML += `<div style="color:var(--muted)">Task completed</div>`;
+    if(session && session.role==='worker' && session.id===t.workerId){
+      a.innerHTML += `<div style="margin-top:10px"><strong>Waiting for requester rating</strong></div>`;
+    }
+    if(session && session.email===t.requester){
+      a.innerHTML += `<div style="margin-top:8px">You can leave a rating for the worker below:</div><div style="margin-top:8px">
+        <select id="rating"><option value="5">5 - Excellent</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1 - Poor</option></select>
+        <textarea id="review" placeholder="Optional review" style="margin-top:8px"></textarea>
+        <div style="margin-top:8px"><button onclick="leaveRating('${t.id}')" style="background:var(--accent);color:#02121a">Leave rating</button></div></div>`;
+    }
+  }
+}
+ 
+/* Actions */
+function apply(id){
+  const s = getSession(); if(!s || s.role!=='worker'){ alert('Sign in as worker'); go('login.html'); return; }
+  let tasks = getTasks(); const t = tasks.find(x=>x.id===id);
+  if(!t || t.status!=='open'){ alert('Not available'); return; }
+  t.workerId = s.id; t.status = 'in-progress'; t.applicants = t.applicants || []; t.applicants.push(s.email);
+  setTasks(tasks); alert('Accepted. Go to Dashboard to submit when done.'); location.reload();
+}
+ 
+function cancel(id){
+  if(!confirm('Cancel this task?')) return;
+  let tasks = getTasks(); const t = tasks.find(x=>x.id===id);
+  if(!t) return;
+  t.status='cancelled'; setTasks(tasks); alert('Task cancelled'); location.reload();
+}
+ 
+function complete(id){
+  const submission = document.getElementById('submission').value.trim();
+  if(!submission){ if(!confirm('Submit empty?')) return; }
+  let tasks = getTasks(); const t = tasks.find(x=>x.id===id);
+  t.status='completed'; t.completed=true; t.submission = submission; setTasks(tasks);
+  alert('Submission recorded. Wait for requester to mark paid & rate you.');
+  location.reload();
+}
+ 
+function markPaid(id){
+  if(!confirm('Mark task complete and transfer reward to worker (simulated)?')) return;
+  let tasks = getTasks(); const t = tasks.find(x=>x.id===id);
+  if(!t || !t.workerId){ alert('No worker assigned'); return; }
+  t.status='completed'; t.completed=true; setTasks(tasks);
+  // add reward to worker balance
+  let users = getUsers(); const w = users.find(u=>u.id===t.workerId);
+  if(w){ w.balance = (w.balance||0) + (t.reward||0); w.completed = (w.completed||0) + 1; setUsers(users); alert('Paid to worker: '+w.email); }
+  location.reload();
+}
+ 
+function leaveRating(id){
+  const r = parseInt(document.getElementById('rating').value); const review = document.getElementById('review').value.trim();
+  let tasks = getTasks(); const t = tasks.find(x=>x.id===id);
+  t.ratings = t.ratings || []; t.ratings.push({rating:r,review});
+  setTasks(tasks);
+  // update worker average
+  let users = getUsers(); const w = users.find(u=>u.id===t.workerId);
+  if(w){
+    w.reviews = w.reviews || [];
+    w.reviews.push({task:t.title,rating:r,review});
+    // compute rating avg
+    const avg = w.reviews.reduce((a,b)=>a+b.rating,0)/w.reviews.length;
+    w.rating = Math.round(avg*10)/10;
+    setUsers(users);
+  }
+  alert('Rating saved'); location.reload();
+}
+ 
+function renderReviews(t){
+  const container = document.getElementById('reviews'); container.innerHTML='';
+  if(!t.ratings || !t.ratings.length){ container.innerHTML='<div class="muted">No ratings yet</div>'; return; }
+  t.ratings.forEach(r=>{
+    const div = document.createElement('div'); div.style.borderTop='1px solid rgba(255,255,255,0.03)'; div.style.paddingTop='8px';
+    div.innerHTML = `<div style="font-weight:600">${'★'.repeat(r.rating)} <small class="muted">(${r.rating})</small></div><div class="muted" style="margin-top:6px">${r.review||''}</div>`;
+    container.appendChild(div);
+  });
+}
+</script>
+</body>
+</html>
